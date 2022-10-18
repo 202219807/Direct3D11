@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <ProjectOutputs>
+    <ProjectOutput>
+      <FullPath>C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\x64\Release\Tutorial04.exe</FullPath>
+    </ProjectOutput>
+  </ProjectOutputs>
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\x64\Release\Tutorial04_PS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\x64\Release\Tutorial04_VS.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
+  <SatelliteDlls />
+  <NonRecipeFileRefs />
+</Project>

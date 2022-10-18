@@ -1,0 +1,20 @@
+﻿  compilation object save succeeded; see C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Debug\Tutorial04_PS.cso
+  compilation object save succeeded; see C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Debug\Tutorial04_VS.cso
+  Tutorial04.cpp
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(615,41): warning C4838: conversion from 'int' to 'WORD' requires a narrowing conversion
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(619,2): warning C4245: 'initializing': conversion from 'int' to 'WORD', signed/unsigned mismatch
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(618,48): warning C4838: conversion from 'int' to 'WORD' requires a narrowing conversion
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(628,27): warning C4244: '=': conversion from 'int' to 'WORD', possible loss of data
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(629,31): warning C4244: '=': conversion from 'int' to 'WORD', possible loss of data
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(630,37): warning C4244: '=': conversion from 'int' to 'WORD', possible loss of data
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(631,37): warning C4244: '=': conversion from 'int' to 'WORD', possible loss of data
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(632,31): warning C4244: '=': conversion from 'int' to 'WORD', possible loss of data
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(633,37): warning C4244: '=': conversion from 'int' to 'WORD', possible loss of data
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(472,13): warning C4189: 'nVertices': local variable is initialized but not referenced
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(473,13): warning C4189: 'nGridUnit': local variable is initialized but not referenced
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Tutorial04\Tutorial04.cpp(530,17): warning C4189: 'scene': local variable is initialized but not referenced
+Tutorial04.obj : warning LNK4075: ignoring '/EDITANDCONTINUE' due to '/SAFESEH' specification
+Tutorial04.obj : error LNK2019: unresolved external symbol "public: __thiscall Assimp::Importer::Importer(void)" (??0Importer@Assimp@@QAE@XZ) referenced in function "long __cdecl InitDevice(void)" (?InitDevice@@YAJXZ)
+Tutorial04.obj : error LNK2019: unresolved external symbol "public: __thiscall Assimp::Importer::~Importer(void)" (??1Importer@Assimp@@QAE@XZ) referenced in function "long __cdecl InitDevice(void)" (?InitDevice@@YAJXZ)
+Tutorial04.obj : error LNK2019: unresolved external symbol "public: struct aiScene const * __thiscall Assimp::Importer::ReadFile(char const *,unsigned int)" (?ReadFile@Importer@Assimp@@QAEPBUaiScene@@PBDI@Z) referenced in function "long __cdecl InitDevice(void)" (?InitDevice@@YAJXZ)
+C:\Users\ronni\Desktop\Game Development\Real Time Graphics\Direct3D11\Debug\Tutorial04.exe : fatal error LNK1120: 3 unresolved externals

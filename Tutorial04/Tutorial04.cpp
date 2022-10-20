@@ -396,37 +396,20 @@ HRESULT InitDevice()
         return hr;
 
     // Create vertex buffer
-    const auto RAD = 1.0f;
-    const auto MAX_VERTEX_SIZE = 14;
-    SimpleVertex vertices[MAX_VERTEX_SIZE] =
+    SimpleVertex vertices[] =
     {
-        {
-            XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f)
-        }
+        { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ) },
+        { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ) },
+        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ) },
+        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ) },
+        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ) },
+        { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ) },
+        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ) },
+        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ) },
     };
-
-    for ( int i = 1; i <= 6; i++ ) {
-        vertices[i] = {
-             XMFLOAT3(RAD* XMScalarCos(i * (XM_PI/3)), 0.0f, RAD* XMScalarSin(i * (XM_PI/3))),
-             XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f)
-        };
-    }
-
-    vertices[7] = {
-        XMFLOAT3(0.0f, -2.0f, 0.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f),
-    };
-
-    for (int i = 8; i <= 13; i++) {
-        vertices[i] = {
-            XMFLOAT3(RAD * XMScalarCos((XM_PI / 3) * (i - 7)), -2.0f, RAD * XMScalarSin((XM_PI / 3) * (i - 7))),
-            XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f),
-        };
-    };
-
-
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof( SimpleVertex ) * 14;
+    bd.ByteWidth = sizeof( SimpleVertex ) * 8;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 
@@ -444,19 +427,26 @@ HRESULT InitDevice()
     // Create index buffer
     WORD indices[] =
     {
-        // top face
-        1,0,2,2,0,3,3,0,4,4,0,5,5,0,6,6,0,1,
+        3,1,0,
+        2,1,3,
 
-        // lateral face
-        1,8,2,8,2,9,2,9,3,9,3,10,3,10,4,10,4,11,
-        4,11,5,11,5,12,5,12,6,12,6,13,6,13,1,-1,
+        0,5,4,
+        1,5,0,
 
-        // bottom face
-        13,7,8,8,7,9,9,7,10,10,7,11,11,7,12,12,7,13,-1
+        3,4,7,
+        0,4,3,
 
+        1,6,5,
+        2,6,1,
+
+        2,7,6,
+        3,7,2,
+
+        6,4,5,
+        7,4,6,
     };
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof( WORD ) * 72;        // 36 vertices needed for 12 triangles in a triangle list
+    bd.ByteWidth = sizeof( WORD ) * 36;        // 36 vertices needed for 12 triangles in a triangle list
     bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	bd.CPUAccessFlags = 0;
     InitData.pSysMem = indices;
@@ -483,29 +473,13 @@ HRESULT InitDevice()
 	g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet( 0.0f, 2.0f, -5.0f, 0.0f );
+	XMVECTOR Eye = XMVectorSet( 0.0f, 1.0f, -5.0f, 0.0f );
 	XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	g_View = XMMatrixLookAtLH( Eye, At, Up );
 
     // Initialize the projection matrix
 	g_Projection = XMMatrixPerspectiveFovLH( XM_PIDIV2, width / (FLOAT)height, 0.01f, 100.0f );
-
-
-    // Rasterization State Table
-    ID3D11RasterizerState* m_rasterState = 0;
-    D3D11_RASTERIZER_DESC rasterDesc;
-    rasterDesc.CullMode = D3D11_CULL_NONE; // D3D11_CULL_NONE; // D3D11_CULL_FRONT; D3D11_CULL_BACK;
-    rasterDesc.FillMode = D3D11_FILL_WIREFRAME; // D3D11_FILL_WIREFRAME; // D3D11_FILL_SOLID;
-    rasterDesc.ScissorEnable = false;
-    rasterDesc.DepthBias = 0;
-    rasterDesc.DepthBiasClamp = 0.0f;
-    rasterDesc.DepthClipEnable = true;
-    rasterDesc.MultisampleEnable = false;
-    rasterDesc.SlopeScaledDepthBias = 0.0f;
-
-    hr = g_pd3dDevice->CreateRasterizerState(&rasterDesc, &m_rasterState);
-    g_pImmediateContext->RSSetState(m_rasterState);
 
     return S_OK;
 }
@@ -592,7 +566,7 @@ void Render()
     //
     // Clear the back buffer
     //
-    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::GreenYellow );
+    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::MidnightBlue );
 
     //
     // Update variables
@@ -609,7 +583,7 @@ void Render()
 	g_pImmediateContext->VSSetShader( g_pVertexShader, nullptr, 0 );
 	g_pImmediateContext->VSSetConstantBuffers( 0, 1, &g_pConstantBuffer );
 	g_pImmediateContext->PSSetShader( g_pPixelShader, nullptr, 0 );
-	g_pImmediateContext->DrawIndexed( 72, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
+	g_pImmediateContext->DrawIndexed( 36, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
 
     //
     // Present our back buffer to our front buffer

@@ -458,7 +458,7 @@ HRESULT InitDevice()
     g_pImmediateContext->IASetIndexBuffer( g_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0 );
 
     // Set primitive topology
-    g_pImmediateContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+    g_pImmediateContext->IASetPrimitiveTopology( D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 
 	// Create the constant buffer
 	bd.Usage = D3D11_USAGE_DEFAULT;
@@ -473,13 +473,28 @@ HRESULT InitDevice()
 	g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet( 0.0f, 1.0f, -5.0f, 0.0f );
+	XMVECTOR Eye = XMVectorSet( 0.0f, 2.0f, -5.0f, 0.0f );
 	XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	g_View = XMMatrixLookAtLH( Eye, At, Up );
 
     // Initialize the projection matrix
 	g_Projection = XMMatrixPerspectiveFovLH( XM_PIDIV2, width / (FLOAT)height, 0.01f, 100.0f );
+
+    // Rasterization State Table
+    ID3D11RasterizerState* m_rasterState = 0;
+    D3D11_RASTERIZER_DESC rasterDesc;
+    rasterDesc.CullMode = D3D11_CULL_NONE; // D3D11_CULL_FRONT; D3D11_CULL_BACK;
+    rasterDesc.FillMode = D3D11_FILL_WIREFRAME; // D3D11_FILL_WIREFRAME; // D3D11_FILL_SOLID;
+    rasterDesc.ScissorEnable = false;
+    rasterDesc.DepthBias = 0;
+    rasterDesc.DepthBiasClamp = 0.0f;
+    rasterDesc.DepthClipEnable = true;
+    rasterDesc.MultisampleEnable = false;
+    rasterDesc.SlopeScaledDepthBias = 0.0f;
+
+    hr = g_pd3dDevice->CreateRasterizerState(&rasterDesc, &m_rasterState);
+    g_pImmediateContext->RSSetState(m_rasterState);
 
     return S_OK;
 }
@@ -561,12 +576,12 @@ void Render()
     //
     // Animate the cube
     //
-	g_World = XMMatrixRotationY( t );
+    g_World = XMMatrixRotationY( t );
 
     //
     // Clear the back buffer
     //
-    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::MidnightBlue );
+    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::AntiqueWhite );
 
     //
     // Update variables
@@ -577,6 +592,7 @@ void Render()
 	cb.mProjection = XMMatrixTranspose( g_Projection );
 	g_pImmediateContext->UpdateSubresource( g_pConstantBuffer, 0, nullptr, &cb, 0, 0 );
 
+
     //
     // Renders a triangle
     //
@@ -584,6 +600,14 @@ void Render()
 	g_pImmediateContext->VSSetConstantBuffers( 0, 1, &g_pConstantBuffer );
 	g_pImmediateContext->PSSetShader( g_pPixelShader, nullptr, 0 );
 	g_pImmediateContext->DrawIndexed( 36, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
+
+
+    g_World = g_World * XMMatrixTranslation(-0.5f, 3.0f, 1.0f);
+    g_World = g_World * XMMatrixScaling(0.5f, 0.5f, 0.5f);
+    cb.mWorld = XMMatrixTranspose(g_World);
+
+    g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+    g_pImmediateContext->DrawIndexed(36, 0, 0);
 
     //
     // Present our back buffer to our front buffer

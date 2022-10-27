@@ -31,22 +31,22 @@ VS_OUTPUT MyVertexShader(float4 Pos : POSITION, float4 Color : COLOR)
     // reset
     float4 inPos = Pos;
     
-    // translate
-    float3 T = float3(1, 0.3, 1.0);
-    inPos.xyz += T;
+    //// translate
+    //float3 T = float3(1, 0.3, 1.0);
+    //inPos.xyz += T;
 
-    // scale
-    float3 Scale = float3(0.2, 3, 3);
-    inPos.xyz *= Scale;
+    //// scale
+    //float3 Scale = float3(0.2, 3, 3);
+    //inPos.xyz *= Scale;
     
-    // rotation
-    float angle = 150.0f;
-    float3x3 rMatrix = float3x3(
-        cos(angle), 0, -sin(angle),
-        0         , 1, 0,
-        sin(angle), 0, cos(angle)
-      );
-    inPos.xyz = mul(rMatrix, inPos.xyz);
+    //// rotation
+    //float angle = 150.0f;
+    //float3x3 rMatrix = float3x3(
+    //    cos(angle), 0, -sin(angle),
+    //    0         , 1, 0,
+    //    sin(angle), 0, cos(angle)
+    //  );
+    //inPos.xyz = mul(rMatrix, inPos.xyz);
     
     // resulting matrix
     float4x4  ModelViewProjectionMatrix = mul(mul(World, View), Projection);
@@ -62,7 +62,20 @@ VS_OUTPUT MyVertexShader(float4 Pos : POSITION, float4 Color : COLOR)
 //--------------------------------------------------------------------------------------
 // Pixel Shader
 //--------------------------------------------------------------------------------------
-float4 PS( VS_OUTPUT input ) : SV_Target
+float4 MyPixelShader1( VS_OUTPUT input ) : SV_Target
 {
-    return input.Color;
+    float4 colors = float4(1.0f, 0.0f, 1.0f, 0.0f);
+    return input.Color = colors;
+}
+
+float4 MyPixelShader2(VS_OUTPUT input) : SV_Target
+{
+    float4 colors = float4(0.0f, 1.0f, 1.0f, 0.0f);
+    return input.Color = colors;
+}
+
+float4 MyPixelShader3(VS_OUTPUT input) : SV_Target
+{
+    float4 colors = float4(1.0f, 1.0f, 0.0f, 0.0f);
+    return input.Color = colors;
 }

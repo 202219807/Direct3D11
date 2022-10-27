@@ -22,13 +22,16 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Tutorial04.fx">
+    <FxCompile Include="VertexShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Tutorial04_PS.hlsl">
+    <FxCompile Include="PixelShader3.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Tutorial04_VS.hlsl">
+    <FxCompile Include="PixelShader1.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="PixelShader2.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

@@ -28,6 +28,7 @@ struct SimpleVertex
 {
     XMFLOAT3 Pos;
     XMFLOAT4 Color;
+    XMFLOAT3 Normal;
 };
 
 
@@ -36,6 +37,7 @@ struct ConstantBuffer
 	XMMATRIX mWorld;
 	XMMATRIX mView;
 	XMMATRIX mProjection;
+    XMVECTOR lightPos;
 };
 
 
@@ -46,24 +48,37 @@ HINSTANCE               g_hInst = nullptr;
 HWND                    g_hWnd = nullptr;
 D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
 D3D_FEATURE_LEVEL       g_featureLevel = D3D_FEATURE_LEVEL_11_0;
+
 ID3D11Device*           g_pd3dDevice = nullptr;
 ID3D11Device1*          g_pd3dDevice1 = nullptr;
+
 ID3D11DeviceContext*    g_pImmediateContext = nullptr;
 ID3D11DeviceContext1*   g_pImmediateContext1 = nullptr;
+
 IDXGISwapChain*         g_pSwapChain = nullptr;
 IDXGISwapChain1*        g_pSwapChain1 = nullptr;
+
 ID3D11RenderTargetView* g_pRenderTargetView = nullptr;
+
 ID3D11VertexShader*     g_pVertexShader_1 = nullptr;
+
 ID3D11PixelShader*      g_pPixelShader_1 = nullptr;
-ID3D11PixelShader*      g_pPixelShader_2 = nullptr;
-ID3D11PixelShader*      g_pPixelShader_3 = nullptr;
+// ID3D11PixelShader*      g_pPixelShader_2 = nullptr;
+// ID3D11PixelShader*      g_pPixelShader_3 = nullptr;
+
+ID3D11Texture2D*        g_pDepthStencil = nullptr;
+ID3D11DepthStencilView* g_pDepthStencilView = nullptr;
+
 ID3D11InputLayout*      g_pVertexLayout = nullptr;
+
 ID3D11Buffer*           g_pVertexBuffer = nullptr;
 ID3D11Buffer*           g_pIndexBuffer = nullptr;
 ID3D11Buffer*           g_pConstantBuffer = nullptr;
+
 XMMATRIX                g_World;
 XMMATRIX                g_View;
 XMMATRIX                g_Projection;
+XMVECTOR                g_LightPosition;
 
 
 //--------------------------------------------------------------------------------------
@@ -333,7 +348,34 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
-    g_pImmediateContext->OMSetRenderTargets( 1, &g_pRenderTargetView, nullptr );
+    // Create depth stencil texture
+    D3D11_TEXTURE2D_DESC descDepth = {};
+    descDepth.Width = width;
+    descDepth.Height = height;
+    descDepth.MipLevels = 1;
+    descDepth.ArraySize = 1;
+    descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    descDepth.SampleDesc.Count = 1;
+    descDepth.SampleDesc.Quality = 0;
+    descDepth.Usage = D3D11_USAGE_DEFAULT;
+    descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    descDepth.CPUAccessFlags = 0;
+    descDepth.MiscFlags = 0;
+    hr = g_pd3dDevice->CreateTexture2D(&descDepth, nullptr, &g_pDepthStencil);
+    if (FAILED(hr))
+        return hr;
+
+    // Create the depth stencil view
+    D3D11_DEPTH_STENCIL_VIEW_DESC descDSV = {};
+    descDSV.Format = descDepth.Format;
+    descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    descDSV.Texture2D.MipSlice = 0;
+    hr = g_pd3dDevice->CreateDepthStencilView(g_pDepthStencil, &descDSV, &g_pDepthStencilView);
+    if (FAILED(hr))
+        return hr;
+
+    // g_pImmediateContext->OMSetRenderTargets( 1, &g_pRenderTargetView, nullptr );
+    g_pImmediateContext->OMSetRenderTargets( 1, &g_pRenderTargetView, g_pDepthStencilView);
 
     // Setup the viewport
     D3D11_VIEWPORT vp;
@@ -369,6 +411,7 @@ HRESULT InitDevice()
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	UINT numElements = ARRAYSIZE( layout );
 
@@ -376,15 +419,17 @@ HRESULT InitDevice()
 	hr = g_pd3dDevice->CreateInputLayout( layout, numElements, pVSBlob->GetBufferPointer(),
                                           pVSBlob->GetBufferSize(), &g_pVertexLayout );
 	pVSBlob->Release();
-	if( FAILED( hr ) )
+    if (FAILED(hr)) {
         return hr;
+    }
+
 
     // Set the input layout
     g_pImmediateContext->IASetInputLayout( g_pVertexLayout );
 
 	// Compile the pixel shader --1
-	ID3DBlob* pPSBlob1 = nullptr;
-    hr = CompileShaderFromFile( L"Effects.fx", "MyPixelShader1", "ps_4_0", &pPSBlob1 );
+	ID3DBlob* pPSBlob = nullptr;
+    hr = CompileShaderFromFile( L"Effects.fx", "MyPixelShader1", "ps_4_0", &pPSBlob );
     if( FAILED( hr ) )
     {
         MessageBox( nullptr,
@@ -393,62 +438,77 @@ HRESULT InitDevice()
     }
 
 	// Create the pixel shader
-	hr = g_pd3dDevice->CreatePixelShader( pPSBlob1->GetBufferPointer(), pPSBlob1->GetBufferSize(), nullptr, &g_pPixelShader_1 );
-	pPSBlob1->Release();
+	hr = g_pd3dDevice->CreatePixelShader( pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &g_pPixelShader_1 );
+	pPSBlob->Release();
     if( FAILED( hr ) )
         return hr;
 
 
 
 
-    // Compile the pixel shader --2
-    ID3DBlob* pPSBlob2 = nullptr;
-    hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader2", "ps_4_0", &pPSBlob2);
-    if (FAILED(hr))
-    {
-        MessageBox(nullptr,
-            L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-        return hr;
-    }
+    //// Compile the pixel shader --2
+    //ID3DBlob* pPSBlob2 = nullptr;
+    //hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader2", "ps_4_0", &pPSBlob2);
+    //if (FAILED(hr))
+    //{
+    //    MessageBox(nullptr,
+    //        L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
+    //    return hr;
+    //}
 
-    // Create the pixel shader
-    hr = g_pd3dDevice->CreatePixelShader(pPSBlob2->GetBufferPointer(), pPSBlob2->GetBufferSize(), nullptr, &g_pPixelShader_2);
-    pPSBlob2->Release();
-    if (FAILED(hr))
-        return hr;
+    //// Create the pixel shader
+    //hr = g_pd3dDevice->CreatePixelShader(pPSBlob2->GetBufferPointer(), pPSBlob2->GetBufferSize(), nullptr, &g_pPixelShader_2);
+    //pPSBlob2->Release();
+    //if (FAILED(hr))
+    //    return hr;
 
 
 
-    // Compile the pixel shader --3
-    ID3DBlob* pPSBlob3 = nullptr;
-    hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader3", "ps_4_0", &pPSBlob3);
-    if (FAILED(hr))
-    {
-        MessageBox(nullptr,
-            L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-        return hr;
-    }
+    //// Compile the pixel shader --3
+    //ID3DBlob* pPSBlob3 = nullptr;
+    //hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader3", "ps_4_0", &pPSBlob3);
+    //if (FAILED(hr))
+    //{
+    //    MessageBox(nullptr,
+    //        L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
+    //    return hr;
+    //}
 
-    // Create the pixel shader
-    hr = g_pd3dDevice->CreatePixelShader(pPSBlob3->GetBufferPointer(), pPSBlob3->GetBufferSize(), nullptr, &g_pPixelShader_3);
-    pPSBlob3->Release();
-    if (FAILED(hr))
-        return hr;
+    //// Create the pixel shader
+    //hr = g_pd3dDevice->CreatePixelShader(pPSBlob3->GetBufferPointer(), pPSBlob3->GetBufferSize(), nullptr, &g_pPixelShader_3);
+    //pPSBlob3->Release();
+    //if (FAILED(hr))
+    //    return hr;
 
 
 
     // Create vertex buffer
     SimpleVertex vertices[] =
     {
-        { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ) },
+        { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        
+        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
     };
+
+    //SimpleVertex vertices[] =
+    //{
+    //    { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+    //    { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f)},
+    //    { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f)},
+    //    { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f)},
+
+    //    { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f)},
+    //    { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)},
+    //    { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f) },
+    //};
+
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof( SimpleVertex ) * 8;
@@ -525,12 +585,14 @@ HRESULT InitDevice()
     // Initialize the projection matrix
 	g_Projection = XMMatrixPerspectiveFovLH( XM_PIDIV2, width / (FLOAT)height, 0.01f, 100.0f );
 
+    // Initialize the lighting vector
+    g_LightPosition = XMVectorSet( 10.0f, 0.0f, 0.0f, 0.0f );
 
     // Rasterization State Table
     ID3D11RasterizerState* m_rasterState = 0;
     D3D11_RASTERIZER_DESC rasterDesc;
     rasterDesc.CullMode = D3D11_CULL_NONE; // D3D11_CULL_FRONT; D3D11_CULL_BACK;
-    rasterDesc.FillMode = D3D11_FILL_WIREFRAME; // D3D11_FILL_WIREFRAME; // D3D11_FILL_SOLID;
+    rasterDesc.FillMode = D3D11_FILL_SOLID; // D3D11_FILL_WIREFRAME; // D3D11_FILL_SOLID;
     rasterDesc.ScissorEnable = false;
     rasterDesc.DepthBias = 0;
     rasterDesc.DepthBiasClamp = 0.0f;
@@ -560,6 +622,10 @@ void CleanupDevice()
     if( g_pVertexShader_1 ) g_pVertexShader_1->Release();
     // if( g_pPixelShader ) g_pPixelShader->Release();
     if( g_pPixelShader_1 ) g_pPixelShader_1->Release();
+    // if (g_pPixelShader_2) g_pPixelShader_2->Release();
+    // if (g_pPixelShader_3) g_pPixelShader_3->Release();
+    if( g_pDepthStencil ) g_pDepthStencil->Release();
+    if( g_pDepthStencilView ) g_pDepthStencilView->Release();
     if( g_pRenderTargetView ) g_pRenderTargetView->Release();
     if( g_pSwapChain1 ) g_pSwapChain1->Release();
     if( g_pSwapChain ) g_pSwapChain->Release();
@@ -623,7 +689,7 @@ void Render()
     //
     // Animate the cube
     //
-	// g_World = XMMatrixRotationY( t );
+	g_World = XMMatrixRotationY( t );
 
     //
     // Clear the back buffer
@@ -631,12 +697,20 @@ void Render()
     g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::DodgerBlue );
 
     //
+    // Clear the depth buffer to 1.0 (max depth)
+    //
+    g_pImmediateContext->ClearDepthStencilView(g_pDepthStencilView,
+       D3D11_CLEAR_DEPTH, 1.0f, 0);
+    
+    //
     // Update variables
     //
     ConstantBuffer cb;
 	cb.mWorld = XMMatrixTranspose( g_World );
 	cb.mView = XMMatrixTranspose( g_View );
 	cb.mProjection = XMMatrixTranspose( g_Projection );
+    cb.lightPos = g_LightPosition;
+
 	g_pImmediateContext->UpdateSubresource( g_pConstantBuffer, 0, nullptr, &cb, 0, 0 );
 
     //
@@ -647,6 +721,7 @@ void Render()
 	g_pImmediateContext->VSSetConstantBuffers( 0, 1, &g_pConstantBuffer );
 	// g_pImmediateContext->PSSetShader( g_pPixelShader, nullptr, 0 );
 	g_pImmediateContext->PSSetShader( g_pPixelShader_1, nullptr, 0 );
+    g_pImmediateContext->PSSetConstantBuffers(0, 1, &g_pConstantBuffer);
 	g_pImmediateContext->DrawIndexed( 36, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
 
 
@@ -655,43 +730,43 @@ void Render()
     //
     // Update variables for 2nd cube
     //
-    XMMATRIX g_World2;
-    g_World2 = XMMatrixIdentity();
-    // g_World2 = XMMatrixRotationX(-t * 2);
-    g_World2 *= XMMatrixTranslation(5.0f, -0.4f, 2.5f);
-    g_World2 *= XMMatrixScaling(1.0f, 2.0f, 1.0f);
+    //XMMATRIX g_World2;
+    //g_World2 = XMMatrixIdentity();
+    //// g_World2 = XMMatrixRotationX(-t * 2);
+    //g_World2 *= XMMatrixTranslation(5.0f, -0.4f, 2.5f);
+    //g_World2 *= XMMatrixScaling(1.0f, 2.0f, 1.0f);
 
-    ConstantBuffer cb2;
-    cb2.mWorld = XMMatrixTranspose(g_World2);
-    cb2.mView = XMMatrixTranspose(g_View);
-    cb2.mProjection = XMMatrixTranspose(g_Projection);
-    g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb2, 0, 0);
+    //ConstantBuffer cb2;
+    //cb2.mWorld = XMMatrixTranspose(g_World2);
+    //cb2.mView = XMMatrixTranspose(g_View);
+    //cb2.mProjection = XMMatrixTranspose(g_Projection);
+    //g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb2, 0, 0);
 
-    g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
-    g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
-    g_pImmediateContext->PSSetShader(g_pPixelShader_2, nullptr, 0);
-    g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
+    //g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
+    //g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
+    //g_pImmediateContext->PSSetShader(g_pPixelShader_2, nullptr, 0);
+    //g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
 
 
 
     //
     // Update variables for 3rd cube
     //
-    XMMATRIX g_World3;
-    g_World3 = XMMatrixIdentity();
-    // g_World3 = XMMatrixRotationZ(t * 0.5);
-    g_World3 *= XMMatrixTranslation(-5.0f, -2.0f, 3.0f);
+    //XMMATRIX g_World3;
+    //g_World3 = XMMatrixIdentity();
+    //// g_World3 = XMMatrixRotationZ(t * 0.5);
+    //g_World3 *= XMMatrixTranslation(-5.0f, -2.0f, 3.0f);
 
-    ConstantBuffer cb3;
-    cb3.mWorld = XMMatrixTranspose(g_World3);
-    cb3.mView = XMMatrixTranspose(g_View);
-    cb3.mProjection = XMMatrixTranspose(g_Projection);
-    g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb3, 0, 0);
+    //ConstantBuffer cb3;
+    //cb3.mWorld = XMMatrixTranspose(g_World3);
+    //cb3.mView = XMMatrixTranspose(g_View);
+    //cb3.mProjection = XMMatrixTranspose(g_Projection);
+    //g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb3, 0, 0);
 
-    g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
-    g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
-    g_pImmediateContext->PSSetShader(g_pPixelShader_3, nullptr, 0);
-    g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
+    //g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
+    //g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
+    //g_pImmediateContext->PSSetShader(g_pPixelShader_3, nullptr, 0);
+    //g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
 
 
     //

@@ -586,7 +586,7 @@ HRESULT InitDevice()
 	g_Projection = XMMatrixPerspectiveFovLH( XM_PIDIV2, width / (FLOAT)height, 0.01f, 100.0f );
 
     // Initialize the lighting vector
-    g_LightPosition = XMVectorSet( 10.0f, 0.0f, 0.0f, 0.0f );
+    g_LightPosition = XMVectorSet( 5.0f, 5.0f, 0.0f, 0.0f );
 
     // Rasterization State Table
     ID3D11RasterizerState* m_rasterState = 0;

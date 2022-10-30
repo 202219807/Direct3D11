@@ -19,19 +19,20 @@ cbuffer ConstantBuffer : register( b0 )
 struct VS_OUTPUT
 {
     float4 Pos : SV_POSITION;
-    float4 Color : COLOR0;
-    // float3 Norm : NORMAL;
+    // float4 Color : COLOR0;
+    float3 Norm : TEXCOORD0;
+    float3 PosWorld : TEXCOORD1;
 };
 
 //--------------------------------------------------------------------------------------
 // Vertex Shader
 //--------------------------------------------------------------------------------------
-VS_OUTPUT MyVertexShader(float4 Pos : POSITION, float4 Color : COLOR, float3 N : NORMAL)
+VS_OUTPUT MyVertexShader(float4 Pos : POSITION, float4 N : NORMAL)
 {
     VS_OUTPUT output = (VS_OUTPUT)0;
 
     // reset
-    float4 inPos = Pos;
+    // float4 inPos = Pos;
     
     //// translate
     //float3 T = float3(1, 0.3, 1.0);
@@ -51,21 +52,20 @@ VS_OUTPUT MyVertexShader(float4 Pos : POSITION, float4 Color : COLOR, float3 N :
     //inPos.xyz = mul(rMatrix, inPos.xyz);
         
     // resulting matrix
-    float4x4  ModelViewProjectionMatrix = mul(mul(World, View), Projection);
-    output.Pos = mul(inPos, ModelViewProjectionMatrix);
+    //float4x4  ModelViewProjectionMatrix = mul(mul(World, View), Projection);
+    //output.Pos = mul(inPos, ModelViewProjectionMatrix);
 
     // color
     // output.Color = Color;
 
-    // color and lighting    
-    float4 materialAmb = float4(0.1, 0.2, 0.2, 1.0);
-    float4 materialDiff = float4(0.9, 0.7, 1.0, 1.0);
-    float4 lightCol = float4(1.0, 0.6, 0.8, 1.0);
-    float3 lightDir = normalize(LightPos.xyz - inPos.xyz);
-    float3 normal = normalize(N);
-    float diff = max(0.0, dot(lightDir, normal));
-    output.Color = (materialAmb + diff * materialDiff) * lightCol;
     
+    output.Pos = mul(Pos, World);
+    output.Pos = mul(output.Pos, View);
+    output.Pos = mul(output.Pos, Projection);
+ 
+    output.PosWorld = Pos.xyz;
+    output.Norm = N.xyz;
+   
     return output;
 }
 
@@ -75,7 +75,18 @@ VS_OUTPUT MyVertexShader(float4 Pos : POSITION, float4 Color : COLOR, float3 N :
 //--------------------------------------------------------------------------------------
 float4 MyPixelShader1(VS_OUTPUT input) : SV_Target
 {
-    return input.Color;
+    // color and lighting    
+    float4 color = 0;
+    
+    float4 materialAmb = float4(0.5, 0.2, 0.8, 1.0);
+    float4 materialDiff = float4(0.9, 0.7, 1.0, 1.0);
+    float4 lightCol = float4(1.0, 1.0, 1.0, 1.0);
+    float3 lightDir = normalize(LightPos.xyz - input.PosWorld.xyz);
+    float3 normal = normalize(input.Norm);
+    float diff = max(0.0, dot(lightDir, normal));
+    
+    color = (materialAmb + diff * materialDiff) * lightCol;
+    return color;
 }
 
 //float4 MyPixelShader1( VS_OUTPUT input ) : SV_Target

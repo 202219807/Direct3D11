@@ -17,6 +17,7 @@
 #include <d3dcompiler.h>
 #include <directxmath.h>
 #include <directxcolors.h>
+#include "DDSTextureLoader.h"
 #include "resource.h"
 
 using namespace DirectX;
@@ -24,10 +25,10 @@ using namespace DirectX;
 //--------------------------------------------------------------------------------------
 // Structures
 //--------------------------------------------------------------------------------------
-struct SimpleVertex
+struct TexturedVertex
 {
     XMFLOAT3 Pos;
-    XMFLOAT4 Color;
+    XMFLOAT2 TexCoord;
 };
 
 
@@ -42,26 +43,33 @@ struct ConstantBuffer
 //--------------------------------------------------------------------------------------
 // Global Variables
 //--------------------------------------------------------------------------------------
-HINSTANCE               g_hInst = nullptr;
-HWND                    g_hWnd = nullptr;
-D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
-D3D_FEATURE_LEVEL       g_featureLevel = D3D_FEATURE_LEVEL_11_0;
-ID3D11Device*           g_pd3dDevice = nullptr;
-ID3D11Device1*          g_pd3dDevice1 = nullptr;
-ID3D11DeviceContext*    g_pImmediateContext = nullptr;
-ID3D11DeviceContext1*   g_pImmediateContext1 = nullptr;
-IDXGISwapChain*         g_pSwapChain = nullptr;
-IDXGISwapChain1*        g_pSwapChain1 = nullptr;
-ID3D11RenderTargetView* g_pRenderTargetView = nullptr;
-ID3D11VertexShader*     g_pVertexShader = nullptr;
-ID3D11PixelShader*      g_pPixelShader = nullptr;
-ID3D11InputLayout*      g_pVertexLayout = nullptr;
-ID3D11Buffer*           g_pVertexBuffer = nullptr;
-ID3D11Buffer*           g_pIndexBuffer = nullptr;
-ID3D11Buffer*           g_pConstantBuffer = nullptr;
-XMMATRIX                g_World;
-XMMATRIX                g_View;
-XMMATRIX                g_Projection;
+HINSTANCE                   g_hInst = nullptr;
+HWND                        g_hWnd = nullptr;
+D3D_DRIVER_TYPE             g_driverType = D3D_DRIVER_TYPE_NULL;
+D3D_FEATURE_LEVEL           g_featureLevel = D3D_FEATURE_LEVEL_11_0;
+ID3D11Device*               g_pd3dDevice = nullptr;
+ID3D11Device1*              g_pd3dDevice1 = nullptr;
+ID3D11DeviceContext*        g_pImmediateContext = nullptr;
+ID3D11DeviceContext1*       g_pImmediateContext1 = nullptr;
+IDXGISwapChain*             g_pSwapChain = nullptr;
+IDXGISwapChain1*            g_pSwapChain1 = nullptr;
+ID3D11RenderTargetView*     g_pRenderTargetView = nullptr;
+ID3D11VertexShader*         g_pVertexShader = nullptr;
+ID3D11PixelShader*          g_pPixelShader = nullptr;
+ID3D11InputLayout*          g_pVertexLayout = nullptr;
+ID3D11Buffer*               g_pVertexBuffer = nullptr;
+ID3D11Buffer*               g_pIndexBuffer = nullptr;
+ID3D11Buffer*               g_pConstantBuffer = nullptr;
+ID3D11ShaderResourceView*   g_pTextureRV = nullptr;
+ID3D11ShaderResourceView*   g_pTextureRV_2 = nullptr;
+ID3D11SamplerState*         g_pSampler = nullptr;
+
+
+XMMATRIX                    g_World;
+XMMATRIX                    g_View;
+XMMATRIX                    g_Projection;
+
+
 
 
 //--------------------------------------------------------------------------------------
@@ -331,7 +339,7 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
-    g_pImmediateContext->OMSetRenderTargets( 1, &g_pRenderTargetView, nullptr );
+    g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, nullptr);
 
     // Setup the viewport
     D3D11_VIEWPORT vp;
@@ -342,6 +350,37 @@ HRESULT InitDevice()
     vp.TopLeftX = 0;
     vp.TopLeftY = 0;
     g_pImmediateContext->RSSetViewports( 1, &vp );
+
+    // Create texture --1 from file
+    hr = CreateDDSTextureFromFile(g_pd3dDevice, L"tiles.dds", nullptr, &g_pTextureRV);
+    if ( FAILED( hr )) 
+    {
+        MessageBox(nullptr,
+            L"The DDS file cannot be compiled.  Please run this executable from the directory that contains the DDS file.", L"Error", MB_OK);
+        return hr;
+    }
+
+    // Create texture --2 from file
+    hr = CreateDDSTextureFromFile(g_pd3dDevice, L"coin.dds", nullptr, &g_pTextureRV_2);
+    if (FAILED(hr))
+    {
+        MessageBox(nullptr,
+            L"The DDS file cannot be compiled.  Please run this executable from the directory that contains the DDS file.", L"Error", MB_OK);
+        return hr;
+    }
+
+    // Create the sample state
+    D3D11_SAMPLER_DESC sampDesc = {};
+    sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+    hr = g_pd3dDevice->CreateSamplerState(&sampDesc, &g_pSampler);
+    if (FAILED(hr))
+        return hr;
 
     // Compile the vertex shader
     ID3DBlob* pVSBlob = nullptr;
@@ -365,7 +404,7 @@ HRESULT InitDevice()
     D3D11_INPUT_ELEMENT_DESC layout[] =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	UINT numElements = ARRAYSIZE( layout );
 
@@ -396,20 +435,48 @@ HRESULT InitDevice()
         return hr;
 
     // Create vertex buffer
-    SimpleVertex vertices[] =
+    TexturedVertex vertices[] =
     {
-        { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ) },
+        // Front Face
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+
+        // Back Face
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(1.0f,  1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f,  1.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
+
+        // Top Face
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, 1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+
+        // Bottom Face
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
+
+            // Left Face
+        { XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+
+            // Right Face
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+        { XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+        { XMFLOAT3(1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
     };
+
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof( SimpleVertex ) * 8;
+    bd.ByteWidth = sizeof( TexturedVertex ) * 24;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 
@@ -420,30 +487,36 @@ HRESULT InitDevice()
         return hr;
 
     // Set vertex buffer
-    UINT stride = sizeof( SimpleVertex );
+    UINT stride = sizeof( TexturedVertex );
     UINT offset = 0;
     g_pImmediateContext->IASetVertexBuffers( 0, 1, &g_pVertexBuffer, &stride, &offset );
 
     // Create index buffer
     WORD indices[] =
     {
-        3,1,0,
-        2,1,3,
+           // Front Face
+           0,  1,  2,
+           0,  2,  3,
 
-        0,5,4,
-        1,5,0,
+           // Back Face
+           4,  5,  6,
+           4,  6,  7,
 
-        3,4,7,
-        0,4,3,
+           // Top Face
+           8,  9, 10,
+           8, 10, 11,
 
-        1,6,5,
-        2,6,1,
+           // Bottom Face
+           12, 13, 14,
+           12, 14, 15,
 
-        2,7,6,
-        3,7,2,
+           // Left Face
+           16, 17, 18,
+           16, 18, 19,
 
-        6,4,5,
-        7,4,6,
+           // Right Face
+           20, 21, 22,
+           20, 22, 23,
     };
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof( WORD ) * 36;        // 36 vertices needed for 12 triangles in a triangle list
@@ -473,13 +546,29 @@ HRESULT InitDevice()
 	g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet( 0.0f, 1.0f, -5.0f, 0.0f );
+	XMVECTOR Eye = XMVectorSet( 0.0f, 2.0f, -3.0f, 0.0f );
 	XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	g_View = XMMatrixLookAtLH( Eye, At, Up );
 
     // Initialize the projection matrix
 	g_Projection = XMMatrixPerspectiveFovLH( XM_PIDIV2, width / (FLOAT)height, 0.01f, 100.0f );
+
+
+    // Rasterization State Table
+    ID3D11RasterizerState* m_rasterState = 0;
+    D3D11_RASTERIZER_DESC rasterDesc;
+    rasterDesc.CullMode = D3D11_CULL_NONE; // D3D11_CULL_FRONT; D3D11_CULL_BACK;
+    rasterDesc.FillMode = D3D11_FILL_SOLID; // D3D11_FILL_WIREFRAME; // D3D11_FILL_SOLID;
+    rasterDesc.ScissorEnable = false;
+    rasterDesc.DepthBias = 0;
+    rasterDesc.DepthBiasClamp = 0.0f;
+    rasterDesc.DepthClipEnable = true;
+    rasterDesc.MultisampleEnable = false;
+    rasterDesc.SlopeScaledDepthBias = 0.0f;
+
+    hr = g_pd3dDevice->CreateRasterizerState(&rasterDesc, &m_rasterState);
+    g_pImmediateContext->RSSetState(m_rasterState);
 
     return S_OK;
 }
@@ -505,6 +594,9 @@ void CleanupDevice()
     if( g_pImmediateContext ) g_pImmediateContext->Release();
     if( g_pd3dDevice1 ) g_pd3dDevice1->Release();
     if( g_pd3dDevice ) g_pd3dDevice->Release();
+    if( g_pSampler ) g_pSampler->Release();
+    if( g_pTextureRV ) g_pTextureRV->Release();    
+    if( g_pTextureRV_2 ) g_pTextureRV_2->Release();
 }
 
 
@@ -561,7 +653,7 @@ void Render()
     //
     // Animate the cube
     //
-	g_World = XMMatrixRotationY( t );
+	g_World = XMMatrixRotationY( 1.8f );
 
     //
     // Clear the back buffer
@@ -572,18 +664,30 @@ void Render()
     // Update variables
     //
     ConstantBuffer cb;
+    // XMMATRIX mScale = XMMatrixScaling(1.0f, 1.0f, 1.0f);
+
 	cb.mWorld = XMMatrixTranspose( g_World );
 	cb.mView = XMMatrixTranspose( g_View );
 	cb.mProjection = XMMatrixTranspose( g_Projection );
-	g_pImmediateContext->UpdateSubresource( g_pConstantBuffer, 0, nullptr, &cb, 0, 0 );
+
+    g_pImmediateContext->UpdateSubresource( g_pConstantBuffer, 0, nullptr, &cb, 0, 0 );
 
     //
-    // Renders a triangle
+    // Renders a cube
     //
 	g_pImmediateContext->VSSetShader( g_pVertexShader, nullptr, 0 );
 	g_pImmediateContext->VSSetConstantBuffers( 0, 1, &g_pConstantBuffer );
-	g_pImmediateContext->PSSetShader( g_pPixelShader, nullptr, 0 );
-	g_pImmediateContext->DrawIndexed( 36, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
+	
+    //
+    // Set the texture as a pixel shader resource and sampler
+    //
+    g_pImmediateContext->PSSetShader(g_pPixelShader, nullptr, 0);
+    g_pImmediateContext->PSSetShaderResources(0, 1, &g_pTextureRV);
+    g_pImmediateContext->PSSetShaderResources(1, 1, &g_pTextureRV_2);
+
+    g_pImmediateContext->PSSetSamplers(0, 1, &g_pSampler);
+	
+    g_pImmediateContext->DrawIndexed( 36, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
 
     //
     // Present our back buffer to our front buffer

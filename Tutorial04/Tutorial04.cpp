@@ -63,8 +63,8 @@ ID3D11RenderTargetView* g_pRenderTargetView = nullptr;
 ID3D11VertexShader*     g_pVertexShader_1 = nullptr;
 
 ID3D11PixelShader*      g_pPixelShader_1 = nullptr;
-// ID3D11PixelShader*      g_pPixelShader_2 = nullptr;
-// ID3D11PixelShader*      g_pPixelShader_3 = nullptr;
+ID3D11PixelShader*      g_pPixelShader_2 = nullptr;
+ID3D11PixelShader*      g_pPixelShader_3 = nullptr;
 
 ID3D11Texture2D*        g_pDepthStencil = nullptr;
 ID3D11DepthStencilView* g_pDepthStencilView = nullptr;
@@ -411,7 +411,7 @@ HRESULT InitDevice()
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	UINT numElements = ARRAYSIZE( layout );
 
@@ -446,72 +446,92 @@ HRESULT InitDevice()
 
 
 
-    //// Compile the pixel shader --2
-    //ID3DBlob* pPSBlob2 = nullptr;
-    //hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader2", "ps_4_0", &pPSBlob2);
-    //if (FAILED(hr))
-    //{
-    //    MessageBox(nullptr,
-    //        L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-    //    return hr;
-    //}
+    // Compile the pixel shader --2
+    ID3DBlob* pPSBlob2 = nullptr;
+    hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader2", "ps_4_0", &pPSBlob2);
+    if (FAILED(hr))
+    {
+        MessageBox(nullptr,
+            L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
+        return hr;
+    }
 
-    //// Create the pixel shader
-    //hr = g_pd3dDevice->CreatePixelShader(pPSBlob2->GetBufferPointer(), pPSBlob2->GetBufferSize(), nullptr, &g_pPixelShader_2);
-    //pPSBlob2->Release();
-    //if (FAILED(hr))
-    //    return hr;
+    // Create the pixel shader
+    hr = g_pd3dDevice->CreatePixelShader(pPSBlob2->GetBufferPointer(), pPSBlob2->GetBufferSize(), nullptr, &g_pPixelShader_2);
+    pPSBlob2->Release();
+    if (FAILED(hr))
+        return hr;
 
 
 
-    //// Compile the pixel shader --3
-    //ID3DBlob* pPSBlob3 = nullptr;
-    //hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader3", "ps_4_0", &pPSBlob3);
-    //if (FAILED(hr))
-    //{
-    //    MessageBox(nullptr,
-    //        L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-    //    return hr;
-    //}
+    // Compile the pixel shader --3
+    ID3DBlob* pPSBlob3 = nullptr;
+    hr = CompileShaderFromFile(L"Effects.fx", "MyPixelShader3", "ps_4_0", &pPSBlob3);
+    if (FAILED(hr))
+    {
+        MessageBox(nullptr,
+            L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
+        return hr;
+    }
 
-    //// Create the pixel shader
-    //hr = g_pd3dDevice->CreatePixelShader(pPSBlob3->GetBufferPointer(), pPSBlob3->GetBufferSize(), nullptr, &g_pPixelShader_3);
-    //pPSBlob3->Release();
-    //if (FAILED(hr))
-    //    return hr;
+    // Create the pixel shader
+    hr = g_pd3dDevice->CreatePixelShader(pPSBlob3->GetBufferPointer(), pPSBlob3->GetBufferSize(), nullptr, &g_pPixelShader_3);
+    pPSBlob3->Release();
+    if (FAILED(hr))
+        return hr;
 
 
 
     // Create vertex buffer
-    SimpleVertex vertices[] =
-    {
-        { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-        
-        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-    };
-
     //SimpleVertex vertices[] =
     //{
-    //    { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
-    //    { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f)},
-    //    { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f)},
-    //    { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f)},
-
-    //    { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f)},
-    //    { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f) },
-    //    { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f)},
-    //    { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+    //    { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+    //    { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+    //    { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+    //    
+    //    { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+    //    { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+    //    { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+    //    { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, -1.0f, 0.0f) },
     //};
+
+    SimpleVertex vertices[] =
+    {
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(1.0f, 0.5f, 0.5f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(1.0f, 0.5f, 0.5f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f, 0.5f, 0.5f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.5f, 0.5f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.5f, 0.5f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.5f, 0.5f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.5f, 0.5f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.5f, 0.5f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.5f, 1.0f, 0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.5f, 1.0f, 0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.5f, 1.0f, 0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(0.5f, 1.0f, 0.5f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+    };
 
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof( SimpleVertex ) * 8;
+    bd.ByteWidth = sizeof( SimpleVertex ) * 24;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 
@@ -532,20 +552,20 @@ HRESULT InitDevice()
         3,1,0,
         2,1,3,
 
-        0,5,4,
-        1,5,0,
-
-        3,4,7,
-        0,4,3,
-
-        1,6,5,
-        2,6,1,
-
-        2,7,6,
-        3,7,2,
-
         6,4,5,
         7,4,6,
+
+        11,9,8,
+        10,9,11,
+
+        14,12,13,
+        15,12,14,
+
+        19,17,16,
+        18,17,19,
+
+        22,20,21,
+        23,20,22
     };
 
 
@@ -577,7 +597,7 @@ HRESULT InitDevice()
 	g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet( 0.0f, 2.0f, -5.0f, 0.0f );
+	XMVECTOR Eye = XMVectorSet( 0.0f, 1.0f, -5.0f, 0.0f );
 	XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	g_View = XMMatrixLookAtLH( Eye, At, Up );
@@ -689,7 +709,7 @@ void Render()
     //
     // Animate the cube
     //
-	g_World = XMMatrixRotationY( t );
+	g_World = XMMatrixRotationY( 0.0f );
 
     //
     // Clear the back buffer
@@ -706,7 +726,8 @@ void Render()
     // Update variables
     //
     ConstantBuffer cb;
-	cb.mWorld = XMMatrixTranspose( g_World );
+    XMMATRIX mScale = XMMatrixScaling(5.0f, 5.0f, 5.0f);
+	cb.mWorld = XMMatrixTranspose( g_World * mScale);
 	cb.mView = XMMatrixTranspose( g_View );
 	cb.mProjection = XMMatrixTranspose( g_Projection );
     cb.lightPos = g_LightPosition;
@@ -730,43 +751,46 @@ void Render()
     //
     // Update variables for 2nd cube
     //
-    //XMMATRIX g_World2;
-    //g_World2 = XMMatrixIdentity();
-    //// g_World2 = XMMatrixRotationX(-t * 2);
-    //g_World2 *= XMMatrixTranslation(5.0f, -0.4f, 2.5f);
-    //g_World2 *= XMMatrixScaling(1.0f, 2.0f, 1.0f);
+    XMMATRIX g_World2;
+    g_World2 = XMMatrixIdentity();
+    // g_World2 = XMMatrixRotationX(-t * 2);
+    g_World2 *= XMMatrixTranslation(2.0f, -1.0f, 2.5f);
+    g_World2 *= XMMatrixScaling(1.0f, 2.0f, 1.0f);
 
-    //ConstantBuffer cb2;
-    //cb2.mWorld = XMMatrixTranspose(g_World2);
-    //cb2.mView = XMMatrixTranspose(g_View);
-    //cb2.mProjection = XMMatrixTranspose(g_Projection);
-    //g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb2, 0, 0);
+    ConstantBuffer cb2;
+    cb2.mWorld = XMMatrixTranspose(g_World2);
+    cb2.mView = XMMatrixTranspose(g_View);
+    cb2.mProjection = XMMatrixTranspose(g_Projection);
+    g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb2, 0, 0);
 
-    //g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
-    //g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
-    //g_pImmediateContext->PSSetShader(g_pPixelShader_2, nullptr, 0);
-    //g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
+    g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
+    g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
+    g_pImmediateContext->PSSetShader(g_pPixelShader_2, nullptr, 0);
+    g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
 
 
 
     //
     // Update variables for 3rd cube
     //
-    //XMMATRIX g_World3;
-    //g_World3 = XMMatrixIdentity();
-    //// g_World3 = XMMatrixRotationZ(t * 0.5);
-    //g_World3 *= XMMatrixTranslation(-5.0f, -2.0f, 3.0f);
+    XMMATRIX g_World3;
+    g_World3 = XMMatrixIdentity();
+    
+    g_World3 = XMMatrixRotationY(7.85f) * XMMatrixRotationX(0.0f);
+    g_World3 *= XMMatrixScaling(0.5f, 0.5f, 1.0f);
+    // g_World3 = XMMatrixRotationZ(t * 0.5);
+    g_World3 *= XMMatrixTranslation(-2.0f, -2.0f, 0.0f);
 
-    //ConstantBuffer cb3;
-    //cb3.mWorld = XMMatrixTranspose(g_World3);
-    //cb3.mView = XMMatrixTranspose(g_View);
-    //cb3.mProjection = XMMatrixTranspose(g_Projection);
-    //g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb3, 0, 0);
+    ConstantBuffer cb3;
+    cb3.mWorld = XMMatrixTranspose(g_World3);
+    cb3.mView = XMMatrixTranspose(g_View);
+    cb3.mProjection = XMMatrixTranspose(g_Projection);
+    g_pImmediateContext->UpdateSubresource(g_pConstantBuffer, 0, nullptr, &cb3, 0, 0);
 
-    //g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
-    //g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
-    //g_pImmediateContext->PSSetShader(g_pPixelShader_3, nullptr, 0);
-    //g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
+    g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
+    g_pImmediateContext->VSSetConstantBuffers(0, 1, &g_pConstantBuffer);
+    g_pImmediateContext->PSSetShader(g_pPixelShader_3, nullptr, 0);
+    g_pImmediateContext->DrawIndexed(36, 0, 0);        // 36 vertices needed for 12 triangles in a triangle list
 
 
     //

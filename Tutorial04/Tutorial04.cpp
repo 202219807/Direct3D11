@@ -68,7 +68,6 @@ ID3D11DepthStencilView*     g_pDepthStencilView = nullptr;
 ID3D11ShaderResourceView*   g_pTexture = nullptr;
 ID3D11ShaderResourceView*   g_pTexture1 = nullptr;
 ID3D11SamplerState*         g_pSampler = nullptr;
-ID3D11SamplerState*         g_pSampler1 = nullptr;
 XMMATRIX                    g_World;
 XMMATRIX                    g_View;
 XMMATRIX                    g_Projection;
@@ -398,7 +397,8 @@ HRESULT InitDevice()
 
     // Create the sample state
     D3D11_SAMPLER_DESC sampDesc = {};
-    sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+    ZeroMemory(&sampDesc, sizeof(sampDesc));
+    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
     sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
     sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
     sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -406,19 +406,6 @@ HRESULT InitDevice()
     sampDesc.MinLOD = 0;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
     hr = g_pd3dDevice->CreateSamplerState(&sampDesc, &g_pSampler);
-    if (FAILED(hr))
-        return hr;
-
-
-    D3D11_SAMPLER_DESC sampDesc1 = {};
-    sampDesc1.Filter = D3D11_FILTER_ANISOTROPIC;
-    sampDesc1.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc1.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc1.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc1.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc1.MinLOD = 0;
-    sampDesc1.MaxLOD = D3D11_FLOAT32_MAX;
-    hr = g_pd3dDevice->CreateSamplerState(&sampDesc1, &g_pSampler1);
     if (FAILED(hr))
         return hr;
 
@@ -577,7 +564,7 @@ HRESULT InitDevice()
 	g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet( 0.0f, 1.2f, -3.0f, 0.0f );
+	XMVECTOR Eye = XMVectorSet( 0.0f, 1.2f, -3.5f, 0.0f );
 	XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	g_View = XMMatrixLookAtLH( Eye, At, Up );
@@ -612,7 +599,6 @@ void CleanupDevice()
     if( g_pDepthStencil ) g_pDepthStencil->Release();
     if( g_pDepthStencilView ) g_pDepthStencilView->Release();
     if( g_pSampler ) g_pSampler->Release();
-    if( g_pSampler1 ) g_pSampler1->Release();
     if( g_pTexture ) g_pTexture->Release();
     if( g_pTexture1 ) g_pTexture1->Release();
 }
@@ -671,12 +657,12 @@ void Render()
     //
     // Animate the cube
     //
-	g_World = XMMatrixRotationY( 0.0 );
+	g_World = XMMatrixRotationY( t );
 
     //
     // Clear the back buffer
     //
-    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::MidnightBlue );
+    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::Black );
 
     //
     // Clear the depth-stencil buffer
@@ -703,7 +689,7 @@ void Render()
     g_pImmediateContext->PSSetShader( g_pPixelShader, nullptr, 0 );
     g_pImmediateContext->PSSetShaderResources( 0, 1, &g_pTexture );
     g_pImmediateContext->PSSetShaderResources( 1, 1, &g_pTexture1 );
-    g_pImmediateContext->PSSetSamplers(0, 1, &g_pSampler1);
+    g_pImmediateContext->PSSetSamplers(0, 1, &g_pSampler);
 
 	g_pImmediateContext->DrawIndexed( 36, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
 

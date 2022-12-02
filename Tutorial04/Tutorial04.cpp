@@ -419,7 +419,7 @@ HRESULT InitDevice()
 
     // Compile the vertex shader
     ID3DBlob* pVSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Effects.fx", "NormalMapVertexShader", "vs_4_0", &pVSBlob );
+    hr = CompileShaderFromFile( L"Effects.fx", "VS", "vs_4_0", &pVSBlob );
     if( FAILED( hr ) )
     {
         MessageBox( nullptr,
@@ -458,7 +458,7 @@ HRESULT InitDevice()
 
 	// Compile the pixel shader
 	ID3DBlob* pPSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Effects.fx", "NormalMapPixelShader", "ps_4_0", &pPSBlob );
+    hr = CompileShaderFromFile( L"Effects.fx", "PS", "ps_4_0", &pPSBlob );
     if( FAILED( hr ) )
     {
         MessageBox( nullptr,
@@ -706,7 +706,7 @@ void Render()
     LightBuffer lb;
     lb.vLightDirection[0] = XMVectorSet(4.0, 4.0, -4.0, 0.0);
     lb.vLightDirection[1] = XMVectorSet(2.0, 2.0, -2.0, 0.0);
-    lb.vLightColor[0] = XMVectorSet(1.0, 1.0, 1.0, 1.0); 
+    lb.vLightColor[0] = XMVectorSet(1.0, 1.0, 1.0, 0.5); 
     lb.vLightColor[1] = XMVectorSet(1.0, 1.0, 1.0, 0.5);
     g_pImmediateContext->UpdateSubresource( g_pLightBuffer, 0, nullptr, &lb, 0, 0);
 

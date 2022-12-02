@@ -15,7 +15,7 @@ cbuffer LightBuffer : register(b1)
 	
 }
 
-struct VertexInputType
+struct VS_INPUT
 {
 	float4 position : POSITION;
 	float4 color : COLOR;
@@ -24,51 +24,18 @@ struct VertexInputType
 	float3 tangent : TANGENT;
 };
 
-struct PixelInputType
+struct PS_INPUT
 {
 	float4 position : SV_Position;
 	float4 color : COLOR0;
-	float3 normal : NORMAL;
-	float3 tangent : TANGENT;
 	float2 tex : TEXCOORD0;
-	
 	float3 viewDirInTang:TEXCOORD1;
 	float3 lightDirInTang : TEXCOORD2;
 };
 
-//PixelInputType NormalMapVertexShader(VertexInputType input)
-//{
-//	PixelInputType output = (PixelInputType) 0;
-	
-//	// Change the position vector to be 4 units for proper matrix calculations.
-//	input.position.w = 1.0f;
-	
-//	// Calculate the position of the vertex against the world, view, and projection matrices.
-//	output.position = mul(input.position, worldMatrix);
-//    output.position = mul(output.position, viewMatrix);
-//    output.position = mul(output.position, projectionMatrix);
-	
-//	// Store the vertex color for the pixel shader.
-//	output.color = input.color;
-	
-//	// Store the texture coordinates for the pixel shader.
-//	output.tex = input.tex;
-		
-//	// Calculate the normal vector against the world matrix only and then normalize the final value.
-//    output.normal = mul(input.normal, (float3x3) worldMatrix);
-//    output.normal = normalize(output.normal);
-	
-//    // Calculate the tangent vector against the world matrix only and then normalize the final value.
-//    output.tangent = mul(input.tangent, (float3x3) worldMatrix);
-//    output.tangent = normalize(output.tangent);
-	
-//	return output;
-//}
-
-
-PixelInputType NormalMapVertexShader(VertexInputType input)
+PS_INPUT VS(VS_INPUT input)
 {
-    PixelInputType output = (PixelInputType) 0;
+    PS_INPUT output = (PS_INPUT) 0;
 	
 	// Change the position vector to be 4 units for proper matrix calculations.
     input.position.w = 1.0f;
@@ -99,43 +66,94 @@ PixelInputType NormalMapVertexShader(VertexInputType input)
     return output;
 }
 
-// Given a local normal, transform it into a tangent space given by surface normal and tangent
-float3 calNormal(float3 localNormal, float3 surfaceNormalWS, float3 surfaceTangentWS)
-{
-    float3 normal = normalize(surfaceNormalWS);
-    float3 tangent = normalize(surfaceTangentWS);
-    float3 binormal = cross(normal, tangent); // reconstructed from normal & tangent
-	
-    float3x3 TBN = { tangent, binormal, normal }; // world "frame" for local normal 
+static const float radius = 0.6;
 
-    return mul(localNormal, TBN); // transform to local to world (tangent space)
+float3 bumpNormal(float2 xy)
+{
+    float3 N = float3(0.0, 0.0, 1.0);
+    
+    //map xy to [-1, 1]x[-1, 1]:
+    
+    float2 st = 2.0 * frac(xy) - 1.0;
+    float r2 = radius * radius - dot(st, st);
+    
+        if (r2 > 0.0)
+    {
+        N.xy = st / sqrt(r2);
+    }
+    return normalize(N);
 }
 
-// This function converts the R and G channels from a normal texture map
-// Assumes the input data is "UNORM" (i.e. needs a x2 bias to get back -1..1)
-// Also reconstructs the B channel in case the normal map was compressed as BC5_UNORM
-float3 TwoChannelNormalX2(float2 normal)
+float2 rayMarching(float2 startTexCoord, float3 viewDir)
 {
-    float2 xy = 2.0 * normal - 1.0f;
-	float z = sqrt(1 - dot(xy, xy));
-    return float3(xy.x, xy.y, z);
+    float3 invertedView = -viewDir;
+    float stepSize = 0.001;
+    
+    float maxBumpHeight = 1.0;
+    float3 P0 = float3(startTexCoord, maxBumpHeight);
+    float H0 = maxBumpHeight * shaderTextures[1].Sample(txSamplerState, P0.xy).r;
+    
+    for (int i = 0; i < 60; i++)
+    {
+        if(P0.z > H0)
+        {
+            P0 += stepSize * invertedView;
+            H0 = maxBumpHeight * shaderTextures[1].Sample(txSamplerState, P0.xy).r;
+        } 
+        else
+        {
+            break;
+        }
+    }
+        return P0.xy;
 }
 
-float4 NormalMapPixelShader(PixelInputType input) : SV_TARGET
+
+
+float4 PS(PS_INPUT input) : SV_TARGET
 {
 	float4 finalColor;
-	float4 textureColor = shaderTextures[0].Sample(txSamplerState, input.tex);
 	
-	float4 bumpMap = shaderTextures[1].Sample(txSamplerState, input.tex);
-    float3 N = normalize(2.0 * bumpMap.xyz - 1.0);
+    float4 textureColor = shaderTextures[0].Sample(txSamplerState, input.tex);
+    float4 bumpMap = shaderTextures[1].Sample(txSamplerState, input.tex);
+
+    // Parallax mapping
+    float H = bumpMap.r;
+    float scale = 1.0;
+    float bias0 = 1.0;
+    H = scale * H - bias0;
+    float2 texCorrected = rayMarching(input.tex, normalize(input.viewDirInTang));
+    textureColor = shaderTextures[0].Sample(txSamplerState, texCorrected);
+    bumpMap = shaderTextures[1].Sample(txSamplerState, texCorrected);
+    float3 N = 2.0 - bumpMap.xyz - 1.0;
+    
+    
+    
+    
+    
+    
+    
 	
+	// Normal mapping
+    // float3 N = normalize(2.0 * bumpMap.xyz - 1.0);
+	
+	// Height mapping
+    // float H = bumpMap.r;
+    // float dx = ddx(H);
+    // float dy = ddy(H);
+    // float N = normalize(float3(-dx, -dy, 0.4));
+	
+	// Procedural mapping
+	// float BumpDensity = 5.5;
+    // float2 xy = float2(BumpDensity * input.tex.x, BumpDensity * input.tex.y);
+    // float3 N = bumpNormal(xy);
+	
+	// Diffuse light
     float3 L = normalize(input.lightDirInTang);
     float diffuse = max(0.0, dot(L, N));
     finalColor = diffuse * textureColor * lightColor[0];
 	
-	
-	
-    
+    // Specular light
     float3 R = normalize(reflect(-L, N));
     float V = normalize(input.viewDirInTang);
     float spec = max(0.0, dot(V, R));

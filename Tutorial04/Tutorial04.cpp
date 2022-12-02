@@ -32,6 +32,7 @@ struct SimpleVertex
     XMFLOAT4 Color;
     XMFLOAT3 Normal;
     XMFLOAT2 TexCoord;
+    XMFLOAT3 Tangent;
 };
 
 
@@ -40,6 +41,12 @@ struct ConstantBuffer
 	XMMATRIX mWorld;
 	XMMATRIX mView;
 	XMMATRIX mProjection;
+};
+
+struct LightBuffer
+{
+    XMVECTOR vLightDirection[2];
+    XMVECTOR vLightColor[2];
 };
 
 
@@ -63,6 +70,7 @@ ID3D11InputLayout*          g_pVertexLayout = nullptr;
 ID3D11Buffer*               g_pVertexBuffer = nullptr;
 ID3D11Buffer*               g_pIndexBuffer = nullptr;
 ID3D11Buffer*               g_pConstantBuffer = nullptr;
+ID3D11Buffer*               g_pLightBuffer = nullptr;
 ID3D11Texture2D*            g_pDepthStencil = nullptr;
 ID3D11DepthStencilView*     g_pDepthStencilView = nullptr;
 ID3D11ShaderResourceView*   g_pTexture = nullptr;
@@ -148,7 +156,7 @@ HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow )
     g_hInst = hInstance;
     RECT rc = { 0, 0, 800, 600 };
     AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW, FALSE );
-    g_hWnd = CreateWindow( L"TutorialWindowClass", L"Direct3D 11 Tutorial 4: 3D Spaces",
+    g_hWnd = CreateWindow( L"TutorialWindowClass", L"Direct3D 11 Week 6: Bump Mapping",
                            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                            CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance,
                            nullptr );
@@ -411,7 +419,7 @@ HRESULT InitDevice()
 
     // Compile the vertex shader
     ID3DBlob* pVSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Tutorial04.fx", "VS", "vs_4_0", &pVSBlob );
+    hr = CompileShaderFromFile( L"Effects.fx", "NormalMapVertexShader", "vs_4_0", &pVSBlob );
     if( FAILED( hr ) )
     {
         MessageBox( nullptr,
@@ -433,7 +441,8 @@ HRESULT InitDevice()
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 48, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	UINT numElements = ARRAYSIZE( layout );
 
@@ -449,7 +458,7 @@ HRESULT InitDevice()
 
 	// Compile the pixel shader
 	ID3DBlob* pPSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Tutorial04.fx", "PS", "ps_4_0", &pPSBlob );
+    hr = CompileShaderFromFile( L"Effects.fx", "NormalMapPixelShader", "ps_4_0", &pPSBlob );
     if( FAILED( hr ) )
     {
         MessageBox( nullptr,
@@ -466,35 +475,41 @@ HRESULT InitDevice()
     // Create vertex buffer
     SimpleVertex vertices[] =
     {
-        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f),XMFLOAT2(1.0f, 0.0f) },
+        // Top face
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f,1.0f, 0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f),XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0) },
 
-        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f),XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f),XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) },
+        // Bottom face
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f),XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f),XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0)},
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0)},
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.9f,0.2f, 0.5f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0) },
 
-        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) },
+        // Left face
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0, 0.0, -1.0) },
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0, 0.0, -1.0) },
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0, 0.0, -1.0) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f,0.8f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0, 0.0, -1.0) },
 
-        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) },
+        // Right face
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0, 0.0, -1.0) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0, 0.0, -1.0) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0, 0.0, -1.0) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f,0.5f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0, 0.0, -1.0) },
 
-        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+        // Front face
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.4f,1.0f, 0.5f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0) },
 
-        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f) },
-        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 1.0f) },
-        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 0.0f) },
-        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f) },
+        // Back face
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(0.5f,0.5f, 0.8f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0, 0.0, 0.0) },
     };
 
 
@@ -560,11 +575,20 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
+    // Create the light buffer
+    bd.Usage = D3D11_USAGE_DEFAULT;
+    bd.ByteWidth = sizeof(LightBuffer);
+    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    bd.CPUAccessFlags = 0;
+    hr = g_pd3dDevice->CreateBuffer( &bd, nullptr, &g_pLightBuffer);
+    if (FAILED(hr))
+        return hr;
+
     // Initialize the world matrix
 	g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet( 0.0f, 1.2f, -3.5f, 0.0f );
+	XMVECTOR Eye = XMVectorSet( 0.0f, 1.2f, -3.0f, 0.0f );
 	XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	g_View = XMMatrixLookAtLH( Eye, At, Up );
@@ -584,6 +608,7 @@ void CleanupDevice()
     if( g_pImmediateContext ) g_pImmediateContext->ClearState();
 
     if( g_pConstantBuffer ) g_pConstantBuffer->Release();
+    if( g_pLightBuffer ) g_pLightBuffer->Release();
     if( g_pVertexBuffer ) g_pVertexBuffer->Release();
     if( g_pIndexBuffer ) g_pIndexBuffer->Release();
     if( g_pVertexLayout ) g_pVertexLayout->Release();
@@ -657,7 +682,7 @@ void Render()
     //
     // Animate the cube
     //
-	g_World = XMMatrixRotationY( t );
+	g_World = XMMatrixRotationY( 0.0 );
 
     //
     // Clear the back buffer
@@ -678,15 +703,21 @@ void Render()
 	cb.mProjection = XMMatrixTranspose( g_Projection );
 	g_pImmediateContext->UpdateSubresource( g_pConstantBuffer, 0, nullptr, &cb, 0, 0 );
 
+    LightBuffer lb;
+    lb.vLightDirection[0] = XMVectorSet(4.0, 4.0, -4.0, 0.0);
+    lb.vLightDirection[1] = XMVectorSet(2.0, 2.0, -2.0, 0.0);
+    lb.vLightColor[0] = XMVectorSet(1.0, 1.0, 1.0, 1.0); 
+    lb.vLightColor[1] = XMVectorSet(1.0, 1.0, 1.0, 0.5);
+    g_pImmediateContext->UpdateSubresource( g_pLightBuffer, 0, nullptr, &lb, 0, 0);
+
     //
     // Renders a triangle
     //
 	g_pImmediateContext->VSSetShader( g_pVertexShader, nullptr, 0 );
 	g_pImmediateContext->VSSetConstantBuffers( 0, 1, &g_pConstantBuffer );
-    // g_pImmediateContext->VSSetShaderResources(0, 1, &g_pTexture);
-    // g_pImmediateContext->VSSetSamplers(0, 1, &g_pSampler);
-
+    g_pImmediateContext->VSSetConstantBuffers(1, 1, &g_pLightBuffer);
     g_pImmediateContext->PSSetShader( g_pPixelShader, nullptr, 0 );
+    g_pImmediateContext->PSSetConstantBuffers(1, 1, &g_pLightBuffer);
     g_pImmediateContext->PSSetShaderResources( 0, 1, &g_pTexture );
     g_pImmediateContext->PSSetShaderResources( 1, 1, &g_pTexture1 );
     g_pImmediateContext->PSSetSamplers(0, 1, &g_pSampler);
